@@ -1,0 +1,5 @@
+screeps_credentials = {
+    'user': '',
+    'password': '',
+    'ptr': False,
+}
