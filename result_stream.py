@@ -9,6 +9,8 @@ class ConsoleStream(screepsapi.Socket):
 
     def process_results(self, ws, message):
         print(message)
+        if message == 'Connection is already closed.':
+            sys.exit('connection was lost, exiting input process')
         sys.stdout.flush()
 
 if __name__ == "__main__":
