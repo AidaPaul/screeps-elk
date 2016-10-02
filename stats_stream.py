@@ -3,10 +3,14 @@
 import json
 import screepsapi
 from settings import screeps_credentials
+from elasticsearch import Elasticsearch
 import time
-import sys
+import os
 
 class ScreepsMemoryStats():
+
+    ELASTICSEARCH_HOST = 'elasticsearch' if 'ELASTICSEARCH' in os.environ else 'localhost'
+    es = Elasticsearch([ELASTICSEARCH_HOST])
 
     def __init__(self, user, password, ptr=False):
         self.user = user
@@ -30,10 +34,12 @@ class ScreepsMemoryStats():
         if 'data' not in stats:
             return False
 
-        confirm_queue =[]
-        for tick,tickstats in stats['data'].items():
-            for group,groupstats in tickstats.items():
+        date_index = time.strftime("%Y_%m")
+        confirm_queue = []
+        for tick, tickstats in stats['data'].items():
+            for group, groupstats in tickstats.items():
 
+                indexname = 'screeps-stats-' + group + '_' + date_index
                 if not isinstance(groupstats, dict):
                     continue
 
@@ -44,19 +50,21 @@ class ScreepsMemoryStats():
 
                         statdata[group] = subgroup
                         statdata['tick'] = int(tick)
-                        statdata['timestamp'] = tickstats['time']
-                        print(json.dumps(statdata));
+                        statdata['@timestamp'] = tickstats['time']
+                        res = self.es.index(index=indexname, doc_type="stats",
+                                            body=statdata)
                 else:
                     groupstats['tick'] = int(tick)
-                    groupstats['timestamp'] = tickstats['time']
-                    print(json.dumps(groupstats));
-                    sys.stdout.flush()
+                    groupstats['@timestamp'] = tickstats['time']
+                    res = self.es.index(index=indexname, doc_type="stats",
+                                        body=groupstats)
             confirm_queue.append(tick)
 
         self.confirm(confirm_queue)
 
     def confirm(self, ticks):
-        javascript_clear = 'Stats.removeTick(' + json.dumps(ticks, separators=(',',':')) + ');'
+        javascript_clear = 'Stats.removeTick(' + json.dumps(ticks, separators=(
+        ',', ':')) + ');'
         sconn = self.getScreepsAPI()
         sconn.console(javascript_clear)
 
